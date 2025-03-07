@@ -1,4 +1,3 @@
-
 // Setup canvas and context
 const canvas = document.getElementById('mainCanvas')
 const ctx = canvas.getContext('2d')
@@ -24,20 +23,25 @@ class Birthday {
 
   resize() {
     this.width = canvas.width = window.innerWidth
-    let center = (this.width / 2) | 0
+    const center = (this.width / 2) | 0
     this.spawnA = (center - center / 4) | 0
     this.spawnB = (center + center / 4) | 0
 
     this.height = canvas.height = window.innerHeight
     this.spawnC = this.height * 0.1
     this.spawnD = this.height * 0.5
+
+    // Adjust firework frequency based on screen size
+    this.fireworkFrequency = this.width < 480 ? 0.5 : 1
   }
 
   onClick(evt) {
-    let x = evt.clientX || (evt.touches && evt.touches[0].pageX)
-    let y = evt.clientY || (evt.touches && evt.touches[0].pageY)
+    const x = evt.clientX || (evt.touches && evt.touches[0].pageX)
+    const y = evt.clientY || (evt.touches && evt.touches[0].pageY)
 
-    let count = random(3, 5)
+    // Adjust number of fireworks based on screen size
+    const count = this.width < 480 ? random(2, 3) : random(3, 5)
+
     for (let i = 0; i < count; i++)
       this.fireworks.push(
         new Firework(random(this.spawnA, this.spawnB), this.height, x, y, random(0, 260), random(30, 110)),
@@ -52,9 +56,11 @@ class Birthday {
     ctx.fillRect(0, 0, this.width, this.height)
 
     ctx.globalCompositeOperation = 'lighter'
-    for (let firework of this.fireworks) firework.update(delta)
+    for (const firework of this.fireworks) firework.update(delta)
 
-    this.counter += delta * 3 // Create new firework every second
+    // Adjust counter increment based on screen size
+    this.counter += delta * 3 * this.fireworkFrequency
+
     if (this.counter >= 1) {
       this.fireworks.push(
         new Firework(
@@ -69,8 +75,10 @@ class Birthday {
       this.counter = 0
     }
 
-    // Clean up dead fireworks
-    if (this.fireworks.length > 1000) this.fireworks = this.fireworks.filter(firework => !firework.dead)
+    // Clean up dead fireworks - more aggressive cleanup on mobile
+    const maxFireworks = this.width < 480 ? 500 : 1000
+    if (this.fireworks.length > maxFireworks)
+      this.fireworks = this.fireworks.filter(firework => !firework.dead)
   }
 }
 
@@ -89,8 +97,8 @@ class Firework {
   update(delta) {
     if (this.dead) return
 
-    let xDiff = this.targetX - this.x
-    let yDiff = this.targetY - this.y
+    const xDiff = this.targetX - this.x
+    const yDiff = this.targetY - this.y
 
     if (Math.abs(xDiff) > 3 || Math.abs(yDiff) > 3) {
       this.x += xDiff * 2 * delta
@@ -100,10 +108,13 @@ class Firework {
       if (this.history.length > 20) this.history.shift()
     } else {
       if (this.offsprings && !this.madeChilds) {
-        let babies = this.offsprings / 2
+        // Adjust number of offspring based on screen size
+        const screenFactor = window.innerWidth < 480 ? 0.6 : 1
+        const babies = Math.floor((this.offsprings / 2) * screenFactor)
+
         for (let i = 0; i < babies; i++) {
-          let targetX = (this.x + this.offsprings * Math.cos((PI2 * i) / babies)) | 0
-          let targetY = (this.y + this.offsprings * Math.sin((PI2 * i) / babies)) | 0
+          const targetX = (this.x + this.offsprings * Math.cos((PI2 * i) / babies)) | 0
+          const targetY = (this.y + this.offsprings * Math.sin((PI2 * i) / babies)) | 0
 
           birthday.fireworks.push(new Firework(this.x, this.y, targetX, targetY, this.shade, 0))
         }
@@ -116,7 +127,7 @@ class Firework {
     if (this.history.length === 0) this.dead = true
     else if (this.offsprings) {
       for (let i = 0; i < this.history.length; i++) {
-        let point = this.history[i]
+        const point = this.history[i]
         ctx.beginPath()
         ctx.fillStyle = `hsl(${this.shade},100%,${i}%)`
         ctx.arc(point.x, point.y, 1, 0, PI2, false)
@@ -133,7 +144,8 @@ class Firework {
 
 // Confetti Setup
 const particles = []
-const maxConfettis = window.innerWidth < 768 ? 17 : 50
+// Adjust confetti amount based on screen size
+const maxConfettis = window.innerWidth < 480 ? 30 : 50
 const possibleColors = [
   'DodgerBlue',
   'OliveDrab',
@@ -152,12 +164,16 @@ const possibleColors = [
 function confettiParticle() {
   this.x = Math.random() * W
   this.y = Math.random() * H - H
-  this.r = random(11, 33)
+  // Adjust confetti size based on screen size
+  const sizeFactor = window.innerWidth < 480 ? 0.7 : 1
+  this.r = random(11, 33) * sizeFactor
   this.d = Math.random() * maxConfettis + 11
   this.color = possibleColors[random(0, possibleColors.length - 1)]
   this.tilt = random(-10, 10)
   this.tiltAngleIncremental = Math.random() * 0.07 + 0.05
   this.tiltAngle = 0
+  // Add speed factor - slower on mobile
+  this.speedFactor = window.innerWidth < 480 ? 0.3 : 1
 
   this.draw = function () {
     ctx.beginPath()
@@ -176,7 +192,25 @@ for (let i = 0; i < maxConfettis; i++) {
 
 // Unified Animation Loop
 const birthday = new Birthday()
-window.onresize = () => birthday.resize()
+
+// Handle window resize properly
+window.onresize = () => {
+  birthday.resize()
+  canvas.width = window.innerWidth
+  canvas.height = window.innerHeight
+  const W = window.innerWidth
+  const H = window.innerHeight
+
+  // Adjust confetti for new screen size
+  particles.length = 0
+  const newMaxConfettis = window.innerWidth < 480 ? 30 : 50
+  for (let i = 0; i < newMaxConfettis; i++) {
+    const particle = new confettiParticle()
+    // Update speed factor based on new screen size
+    particle.speedFactor = window.innerWidth < 480 ? 0.3 : 1
+    particles.push(particle)
+  }
+}
 
 document.onclick = evt => birthday.onClick(evt)
 document.ontouchstart = evt => birthday.onClick(evt)
@@ -192,10 +226,11 @@ document.ontouchstart = evt => birthday.onClick(evt)
   birthday.update(delta)
 
   // Update confetti
-  for (let particle of particles) {
+  for (const particle of particles) {
     particle.draw()
     particle.tiltAngle += particle.tiltAngleIncremental
-    particle.y += (Math.cos(particle.d) + 3 + particle.r / 2) / 2
+    // Apply speed factor to slow down confetti on mobile
+    particle.y += ((Math.cos(particle.d) + 3 + particle.r / 2) / 2) * particle.speedFactor
     particle.tilt = Math.sin(particle.tiltAngle) * 15
 
     if (particle.y > H) {
