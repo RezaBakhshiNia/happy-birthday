@@ -133,7 +133,7 @@ class Firework {
 
 // Confetti Setup
 const particles = []
-const maxConfettis = window.innerWidth < 768 ? 25 : 50
+const maxConfettis = window.innerWidth < 768 ? 17 : 50
 const possibleColors = [
   'DodgerBlue',
   'OliveDrab',
